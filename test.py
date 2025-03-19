@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 from torchvision import datasets
 from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix
 import numpy as np
+from tqdm import tqdm
 
 # Load trained model
 def load_model():
@@ -33,7 +34,7 @@ def evaluate_model():
     
     all_preds, all_labels = [], []
     with torch.no_grad():
-        for images, labels in test_loader:
+        for images, labels in tqdm(test_loader, desc="Testing"):
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             _, preds = torch.max(outputs, 1)

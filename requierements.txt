@@ -1,6 +1,12 @@
-fastapi
-uvicorn
 torch
 torchvision
-p
-Pillow
+fastapi
+uvicorn
+tqdm
+numpy
+scikit-learn
+pillow
+shap
+lime
+matplotlib
+seaborn

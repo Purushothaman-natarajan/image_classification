@@ -9,6 +9,9 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, confu
 import numpy as np
 from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
+import os
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Define transformations with data augmentation for training
 train_transform = transforms.Compose([
@@ -27,11 +30,25 @@ val_test_transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# Load dataset and apply stratified split
+# Load dataset, analyse and apply stratified split
 def load_dataset():
     dataset = datasets.CIFAR10(root='./data', train=True, download=True, transform=train_transform)
     targets = np.array(dataset.targets)
     
+    # Exploratory Data Analysis (EDA)
+    class_counts = np.bincount(targets)
+    class_labels = dataset.classes
+    # plt.figure(figsize=(10, 5))
+    # sns.barplot(x=class_labels, y=class_counts)
+    # plt.xlabel("Class Labels")
+    # plt.ylabel("Number of Samples")
+    # plt.title("Class Distribution in CIFAR-10 Dataset")
+    # plt.xticks(rotation=45)
+    # plt.show()
+    print("Dataset EDA:")
+    print(f"Total samples: {len(dataset)}")
+    print(f"Class distribution: {dict(zip(class_labels, class_counts))}")
+
     stratified_split = StratifiedShuffleSplit(n_splits=1, test_size=0.3, random_state=42)
     train_idx, temp_idx = next(stratified_split.split(np.zeros(len(targets)), targets))
     train_targets = targets[train_idx]
@@ -54,6 +71,10 @@ def load_dataset():
 
 # Load pre-trained ResNet50
 model = models.resnet50(pretrained=True)
+# Freeze all layers for transfer learning.
+for param in model.parameters():
+    param.requires_grad = False 
+
 num_ftrs = model.fc.in_features
 model.fc = nn.Linear(num_ftrs, 10)  # CIFAR-10 has 10 classes
 model = model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
@@ -62,10 +83,10 @@ model = model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 scaler = GradScaler()
-patience, best_loss, counter = 3, np.inf, 0  # Early stopping parameters
+patience, best_loss, counter = 2, np.inf, 0  # Early stopping parameters
 
 # Train model
-def train_model(model, train_loader, val_loader, epochs=10):
+def train_model(model, train_loader, val_loader, epochs=5):
     global best_loss, counter
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.train()
@@ -110,6 +131,9 @@ def train_model(model, train_loader, val_loader, epochs=10):
         print(f"Validation Accuracy: {acc:.4f}, Precision: {prec:.4f}, Recall: {rec:.4f}, Val Loss: {val_loss/len(val_loader)}")
         model.train()
         
+        # Ensure the 'models' directory exists
+        os.makedirs("models", exist_ok=True)
+
         # Early stopping
         if val_loss < best_loss:
             best_loss = val_loss
